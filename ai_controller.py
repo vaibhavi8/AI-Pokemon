@@ -10,6 +10,10 @@ import json
 import logging
 import random
 from abc import ABC, abstractmethod
+import anthropic
+import os
+from dotenv import load_dotenv
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -17,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 API_BASE_URL = "http://localhost:5000/api"
+
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the API key
+claude_api_key = os.getenv("API_KEY")
+
 
 class PokemonAI(ABC):
     """
@@ -144,12 +156,31 @@ class ClaudeAI(PokemonAI):
         super().__init__("Claude")
         self.strategy = "balanced"  # balanced, aggressive, defensive
     
+        self.model = anthropic.Anthropic(
+            api_key=claude_api_key,
+        )
+
+
+    def _llm_call(self, system_prompt, user_prompt): 
+        return self.model.messages.create(
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=1024,
+            messages=[
+                {"role": system_prompt, "content": user_prompt}
+            ]
+        )
+        
     def decide_action(self, game_state, screen_state=None, role="player"):
         """Claude's decision-making logic."""
         # This is a simplified placeholder for Claude's actual decision-making
         # In a real implementation, this would connect to Claude's API
         
         self.update_state(game_state, screen_state)
+
+        logger.info('leecatherine: decide_action')
+
+
+        # VLM here to process screen_state
         
         # Different logic based on role
         if role == "player":
@@ -234,7 +265,7 @@ class AIManager:
         """Initialize the AI Manager."""
         self.grok = GrokAI()
         self.claude = ClaudeAI()
-        self.active_player_ai = self.grok  # Default player AI
+        self.active_player_ai = self.claude  # Default player AI
         self.active_pokemon_ai = self.claude  # Default Pokémon AI
         self.dual_mode = False  # Whether dual AI mode is enabled
     
@@ -316,6 +347,15 @@ class AIManager:
         return False
 
 
+def get_game_screenshot():
+    """Get screenshot from the API."""
+    try:
+        response = requests.get(f"{API_BASE_URL}/screenshot")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Error getting game status: {e}")
+        return {"status": "error"}
+    
 def get_game_status():
     """Get the current game status from the API."""
     try:
@@ -369,9 +409,9 @@ def demo():
     manager = AIManager()
     
     # Example: Set active AIs and mode
-    manager.set_active_player_ai("grok")
+    manager.set_active_player_ai("claude")
     manager.set_active_pokemon_ai("claude")
-    manager.set_dual_mode(True)
+    manager.set_dual_mode(False)
     
     # Start the game if not running
     status = get_game_status()
@@ -381,12 +421,14 @@ def demo():
         time.sleep(2)  # Wait for game to initialize
     
     # Run the AIs for a few steps
-    for _ in range(10):
+    while True:
         # Get current game state
         state = get_game_state()
+
+        screen_state = get_game_screenshot()
         
         # Get AI's decision
-        action, commentary = manager.get_action(state)
+        action, commentary = manager.get_action(state, screen_state=screen_state)
         
         # Execute the action
         execute_action(action, commentary)
