@@ -6,6 +6,7 @@ from pyboy.utils import WindowEvent
 import numpy as np
 from PIL import Image
 import json
+import init
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -42,7 +43,7 @@ class PokemonEmulator:
         
         logger.info(f"Initializing emulator with ROM: {rom_path}")
         self.rom_path = rom_path
-        self.pyboy = PyBoy(rom_path, game_wrapper=True)
+        self.pyboy = PyBoy(rom_path, game_wrapper=True, scale=5)
         self.game = self.pyboy.game_wrapper()
         self.screen_buffer = []
         self.last_screenshot = None
@@ -132,6 +133,7 @@ class PokemonEmulator:
         
         # For demo purposes, we'll just update with placeholder data
         logger.info("Updating game state")
+        logger.info(init.keyboard_press)
         
         # In a real implementation, we would read memory locations to get:
         # - Current Pokémon team (species, levels, HP, moves)

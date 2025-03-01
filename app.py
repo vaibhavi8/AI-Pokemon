@@ -7,7 +7,10 @@ import base64
 from io import BytesIO
 from flask import Flask, render_template, jsonify, request, Response
 from flask_socketio import SocketIO, emit
+from pynput.keyboard import Listener
 import eventlet
+import init
+from keyboard import on_press, on_release
 from emulator import PokemonEmulator
 
 # Set up logging
@@ -70,13 +73,18 @@ def game_loop():
     logger.info("Starting game loop")
     game_running = True
     
+    listener = Listener(
+        on_press=on_press,
+        on_release=on_release)
+    listener.start()
+
     try:
         while game_running:
             with emulator_lock:
                 if emulator and emulator.is_running:
                     # Advance the game by a few frames
                     emulator.tick(2)
-                    
+
                     # Check if we need to update game state
                     if emulator.frame_count % 30 == 0:  # Every 30 frames (roughly 0.5 seconds)
                         emulator.update_game_state()
@@ -140,7 +148,9 @@ def start_game_threads():
     if not game_running:
         game_running = True
         game_thread = eventlet.spawn(game_loop)
-        screenshot_thread = eventlet.spawn(screenshot_loop)
+
+        ## TODO Uncomment when needed
+        # screenshot_thread = eventlet.spawn(screenshot_loop)
         logger.info("Game threads started")
 
 def stop_game_threads():
@@ -381,6 +391,7 @@ def handle_disconnect():
     logger.info("Client disconnected")
 
 if __name__ == '__main__':
+    init.init()
     # Check if ROM file exists
     rom_path = os.path.join(ROM_DIRECTORY, ROM_FILE)
     if not os.path.exists(rom_path):
